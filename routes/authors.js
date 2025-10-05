@@ -86,13 +86,34 @@ router.delete('/:id', async (req, res) => {
   let author
   try {
     author = await Author.findById(req.params.id)
-    await author.remove()
-    res.redirect('/authors')
-  } catch {
+    if (!author) {
+      console.log('Author not found for deletion:', req.params.id)
+      return res.redirect('/')
+    }
+    const books = await Book.find({ author: author.id }).exec();
+    if (books.length > 0) {
+      console.log('Cannot delete author with existing books:', books);
+      return res.render('authors/show', {
+        author: author,
+        booksByAuthor: books,
+        errorMessage: 'Cannot delete author with existing books.'
+      });
+    }
+    await Author.deleteOne({ _id: req.params.id });
+    console.log('Author deleted:', author.id);
+    res.redirect('/authors');
+  } catch (err) {
+    console.error('Error in delete route:', err);
     if (author == null) {
-      res.redirect('/')
+      res.redirect('/');
     } else {
-      res.redirect(`/authors/${author.id}`)
+      let errorMessage = 'Error deleting author.';
+      const books = await Book.find({ author: author.id }).limit(6).exec();
+      res.render('authors/show', {
+        author: author,
+        booksByAuthor: books,
+        errorMessage: errorMessage
+      });
     }
   }
 })
