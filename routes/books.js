@@ -1,8 +1,18 @@
-const express = require('express')
-const router = express.Router()
-const Book = require('../models/book')
-const Author = require('../models/author')
-const imageMimeTypes = ['image/jpeg', 'image/png', 'images/gif']
+const express = require('express');
+const router = express.Router();
+const Book = require('../models/book');
+const Author = require('../models/author');
+const multer = require('multer');
+const path = require('path');
+const imageMimeTypes = ['image/jpeg', 'image/png', 'images/gif'];
+
+// Multer setup for uploads
+const upload = multer({
+  dest: path.join(__dirname, '../public/uploads'),
+  fileFilter: (req, file, cb) => {
+    cb(null, imageMimeTypes.includes(file.mimetype));
+  }
+});
 
 // All Books Route
 router.get('/', async (req, res) => {
@@ -33,23 +43,24 @@ router.get('/new', async (req, res) => {
 })
 
 // Create Book Route
-router.post('/', async (req, res) => {
+router.post('/', upload.single('cover'), async (req, res) => {
   const book = new Book({
     title: req.body.title,
     author: req.body.author,
     publishDate: new Date(req.body.publishDate),
     pageCount: req.body.pageCount,
     description: req.body.description
-  })
-  saveCover(book, req.body.cover)
-
-  try {
-    const newBook = await book.save()
-    res.redirect(`books/${newBook.id}`)
-  } catch {
-    renderNewPage(res, book, true)
+  });
+  if (req.file) {
+    book.coverImagePath = '/uploads/' + req.file.filename;
   }
-})
+  try {
+    const newBook = await book.save();
+    res.redirect(`books/${newBook.id}`);
+  } catch {
+    renderNewPage(res, book, true);
+  }
+});
 
 // Show Book Route
 router.get('/:id', async (req, res) => {
